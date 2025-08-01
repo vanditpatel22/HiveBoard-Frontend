@@ -14,23 +14,21 @@ import { ArrowLeft, Plus, MoreVertical, Users, MessageSquare, Paperclip } from '
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { CardDetailsModal } from '@/app/board/[boardId]/_components/card-details-modal';
 import type { Card as CardType } from '@/store/useStore';
-import { getBoardById } from '@/services/board.service';
-import { BoardInterface, BoardResponse } from '@/types/board.type';
+import { getBoardById, createListItem, deleteListItem } from '@/services/board.service';
+import { BoardInterface, BoardResponse, createListItemI } from '@/types/board.type';
 import { ListInterface } from '@/types/list.type';
+import AddListModel from './add-list-model';
+import { useRouter } from 'next/navigation';
+import { UserRouteConstant } from '@/constants/routes.constant';
 
 const BoardDetails = ({ id }: { id: string }) => {
 
 
     const {
         boards,
-        currentBoardId,
         selectedCardId,
-        setCurrentPage,
-        setCurrentBoardId,
         setSelectedCardId,
-        createList,
         createCard,
-        deleteList,
         deleteCard,
         moveCard
     } = useStore();
@@ -43,42 +41,53 @@ const BoardDetails = ({ id }: { id: string }) => {
     const [newCardDescription, setNewCardDescription] = useState('');
 
     const [cardDetails, setCardDetails] = useState<BoardInterface | null>(null);
+    const router = useRouter();
 
-    const currentBoard = boards.find(board => board.id === currentBoardId);
+
+    const fetchBoard = async () => {
+        const { res, message, success } = await getBoardById(id);
+        if (res) {
+            setCardDetails(res);
+        } else {
+            setCardDetails(null);
+        }
+    }
 
     useEffect(() => {
-        const fetchBoard = async () => {
-            const { res, message, success } = await getBoardById(id);
-            if (res) {
-                setCardDetails(res);
-            } else {
-                setCardDetails(null);
-                // Optionally, you could handle error or show a message here
-            }
-        }
         fetchBoard()
     }, [id])
 
-    if (!cardDetails) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-background">
-                <div className="text-center">
-                    <h2>Board not found</h2>
-                    <Button onClick={() => setCurrentPage('boards')} className="mt-4">
-                        Back to Boards
-                    </Button>
-                </div>
-            </div>
-        );
-    }
 
-    const handleCreateList = () => {
+
+    const handleCreateList = async () => {
         if (newListTitle.trim()) {
-            createList(currentBoard?.id ?? "", newListTitle);
-            setNewListTitle('');
+
+            const position = cardDetails?.lists?.length ?? 1 - 1
+
+            let data: createListItemI = {
+                position: position,
+                title: newListTitle
+            }
+
+            const { res, message, success } = await createListItem(cardDetails?._id ?? "", data)
+
+            if (success) {
+                fetchBoard()
+            }
+
+            console.log('res::===>', res);
+            console.log('message::===>', message);
+            setNewListTitle("")
             setIsCreateListDialogOpen(false);
         }
     };
+
+    const handelDeleteListItem = async (list_id: string) => {
+
+        alert(list_id)
+        const { res, message, success } = await deleteListItem(list_id)
+
+    }
 
     const handleCreateCard = () => {
         if (newCardTitle.trim() && selectedListId) {
@@ -91,8 +100,8 @@ const BoardDetails = ({ id }: { id: string }) => {
     };
 
     const handleBackToBoards = () => {
-        setCurrentBoardId(null);
-        setCurrentPage('boards');
+        router.push(UserRouteConstant.dashboard);
+        return;
     };
 
     const handleOpenCreateCard = (listId: string) => {
@@ -144,9 +153,9 @@ const BoardDetails = ({ id }: { id: string }) => {
                             Back to Boards
                         </Button>
                         <div>
-                            <h1 className="text-foreground">{currentBoard?.title}</h1>
-                            {currentBoard?.description && (
-                                <p className="text-sm text-muted-foreground">{currentBoard?.description}</p>
+                            <h1 className="text-foreground">{cardDetails?.title}</h1>
+                            {cardDetails?.description && (
+                                <p className="text-sm text-muted-foreground">{cardDetails?.description}</p>
                             )}
                         </div>
                     </div>
@@ -155,51 +164,23 @@ const BoardDetails = ({ id }: { id: string }) => {
                         <div className="flex items-center space-x-2">
                             <Users className="h-4 w-4 text-muted-foreground" />
                             <div className="flex -space-x-1">
-                                {currentBoard?.members.map((member) => (
-                                    <Avatar key={member.id} className="h-8 w-8 border-2 border-background">
-                                        <AvatarImage src={member.avatar} />
+                                {cardDetails?.users.map((member) => (
+                                    <Avatar key={member._id} className="h-8 w-8 border-2 border-background">
+                                        <AvatarImage src={""} />
                                         <AvatarFallback>{member.name.charAt(0).toUpperCase()}</AvatarFallback>
                                     </Avatar>
                                 ))}
                             </div>
                         </div>
 
-                        <Dialog open={isCreateListDialogOpen} onOpenChange={setIsCreateListDialogOpen}>
-                            <DialogTrigger asChild>
-                                <Button variant="outline" className="hover:bg-accent/50">
-                                    <Plus className="mr-2 h-4 w-4" />
-                                    Add List
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent className="bg-card">
-                                <DialogHeader>
-                                    <DialogTitle>Create New List</DialogTitle>
-                                    <DialogDescription>
-                                        Add a new list to organize your cards.
-                                    </DialogDescription>
-                                </DialogHeader>
-                                <div className="space-y-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="listTitle">List Title</Label>
-                                        <Input
-                                            id="listTitle"
-                                            placeholder="e.g., To Do, In Progress, Done"
-                                            value={newListTitle}
-                                            onChange={(e) => setNewListTitle(e.target.value)}
-                                            className="border-primary/20 focus:border-primary"
-                                        />
-                                    </div>
-                                    <div className="flex space-x-2">
-                                        <Button onClick={handleCreateList} disabled={!newListTitle.trim()}>
-                                            Create List
-                                        </Button>
-                                        <Button variant="outline" onClick={() => setIsCreateListDialogOpen(false)}>
-                                            Cancel
-                                        </Button>
-                                    </div>
-                                </div>
-                            </DialogContent>
-                        </Dialog>
+                        <AddListModel
+                            isCreateListDialogOpen={isCreateListDialogOpen}
+                            setIsCreateListDialogOpen={setIsCreateListDialogOpen}
+                            newListTitle={newListTitle}
+                            setNewListTitle={setNewListTitle}
+                            handleCreateList={handleCreateList}
+                        />
+
                     </div>
                 </div>
             </header>
@@ -230,7 +211,7 @@ const BoardDetails = ({ id }: { id: string }) => {
                                                         </DropdownMenuItem>
                                                         <DropdownMenuItem
                                                             className="text-destructive hover:bg-destructive/10"
-                                                            onClick={() => deleteList(list._id)}
+                                                            onClick={() => handelDeleteListItem(list._id)}
                                                         >
                                                             Delete List
                                                         </DropdownMenuItem>
@@ -241,7 +222,7 @@ const BoardDetails = ({ id }: { id: string }) => {
                                     </CardHeader>
 
                                     <CardContent>
-                                        <Droppable droppableId={list._id} type="CARD">
+                                        <Droppable ignoreContainerClipping={false} isCombineEnabled={false} isDropDisabled={false} droppableId={list._id} type="CARD">
                                             {(provided, snapshot) => (
                                                 <div
                                                     ref={provided.innerRef}

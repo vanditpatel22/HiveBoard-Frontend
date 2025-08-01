@@ -13,4 +13,9 @@ export const ENDPOINTS = {
     update: BaseUrl + "/boards",
     delete: BaseUrl + "/boards",
   },
+
+  list:{
+    create: BaseUrl + "/lists/create",
+    delete: BaseUrl + "/lists",
+  }
 };

@@ -38,7 +38,7 @@ export interface BoardListResponse {
 export interface BoardResponse {
   board: BoardInterface;
   message?: string;
-} 
+}
 
 
 export interface BoardFiltersI {
@@ -52,4 +52,9 @@ export interface BoardFiltersI {
   assignee?: string;
   due_date?: string;
   created_by?: string;
+}
+
+export interface createListItemI {
+  position: number,
+  title: string
 }
